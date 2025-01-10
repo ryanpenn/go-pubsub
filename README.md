@@ -46,6 +46,65 @@ The pubsub model is a simple messaging pattern where publishers (publishers) sen
     b.Publish("world")
     // Output:
   ```
+- Pub-sub example
+  ```go
+    type Option func(*obj)
+
+    func WithBroker(broker *pubsub.Broker[string]) Option {
+      return func(o *obj) {
+        broker.Subscribe(o.OnMessage).Bind(o)
+      }
+    }
+
+    func WithName(name string) Option {
+      return func(o *obj) {
+        o.name = name
+      }
+    }
+
+    type obj struct {
+      pubsub.AutoUnsubscriber
+      name string
+    }
+
+    func NewObj(opt ...Option) *obj {
+      o := &obj{
+        AutoUnsubscriber: pubsub.NewAutoUnsubscriber(),
+      }
+      for _, f := range opt {
+        f(o)
+      }
+      return o
+    }
+
+    func (o *obj) OnMessage(msg string) {
+      fmt.Println(o.name, "received message:", msg)
+    }
+
+    func (o *obj) Release() {
+      o.UnsubscribeAll()
+    }
+
+    func main() {
+      var broker = pubsub.NewBroker[string]()
+
+      obj1 := NewObj(WithName("obj1"), WithBroker(broker))
+      obj2 := NewObj(WithName("obj2"), WithBroker(broker))
+
+      broker.Publish("Hello")
+      obj1.Release()
+
+      broker.Publish("World")
+      obj2.Release()
+
+      broker.Publish("!")
+
+      // Output:
+      // obj1 received message: Hello
+      // obj2 received message: Hello
+      // obj2 received message: World
+    }
+  ```
 
 ## event
 
